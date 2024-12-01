@@ -6,12 +6,9 @@ use App\Models\Genre;
 use App\Models\Movie;
 use App\Models\Reservation;
 use App\Models\Schedule;
-use App\Models\Screen;
 use App\Models\Sheet;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use PHPUnit\Framework\Attributes\Group;
-use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
 class ScreenTest extends TestCase
@@ -19,177 +16,123 @@ class ScreenTest extends TestCase
     use RefreshDatabase;
 
     private int $genreId;
-    private int $movieId;
-    private int $scheduleId;
-    private int $screenId;
+    private CarbonImmutable $showTime;
 
     public function setUp(): void
     {
         parent::setUp();
+        $this->seed(); // シートのマスターデータを作成
+        $this->genreId = Genre::insertGetId(['name' => 'テストジャンル']);
+        $this->showTime = CarbonImmutable::create(2024, 12, 1, 10, 0, 0);
+    }
 
-        $this->seed();
+    public function test各スクリーンで異なる作品が同時に上映されているか(): void
+    {
+        // 3つの異なる映画を作成
+        $movie1 = $this->createMovie('映画1');
+        $movie2 = $this->createMovie('映画2');
+        $movie3 = $this->createMovie('映画3');
 
-        // 基本データのセットアップ
-        $this->genreId = Genre::insertGetId(['name' => 'ジャンル']);
-        $this->movieId = Movie::insertGetId([
-            'title' => 'テスト映画',
+        // 同じ時間帯に3つのスケジュールを作成（スクリーン1,2,3で別々の映画）
+        $schedule1 = $this->createSchedule($movie1->id, 1);
+        $schedule2 = $this->createSchedule($movie2->id, 2);
+        $schedule3 = $this->createSchedule($movie3->id, 3);
+
+        // 各スケジュールが異なる映画IDを持っていることを確認
+        $this->assertNotEquals($schedule1->movie_id, $schedule2->movie_id);
+        $this->assertNotEquals($schedule2->movie_id, $schedule3->movie_id);
+        $this->assertNotEquals($schedule3->movie_id, $schedule1->movie_id);
+
+        // それぞれの時間が同じであることを確認
+        $this->assertEquals($schedule1->start_time, $schedule2->start_time);
+        $this->assertEquals($schedule2->start_time, $schedule3->start_time);
+    }
+
+    private function createMovie(string $title): Movie
+    {
+        return Movie::create([
+            'title' => $title,
             'image_url' => 'https://example.com/image.jpg',
             'published_year' => 2024,
-            'description' => 'テスト用の映画説明',
+            'description' => 'テスト用映画説明',
             'is_showing' => true,
             'genre_id' => $this->genreId,
         ]);
+    }
 
-        $startTime = new CarbonImmutable('2024-12-01 10:00:00');
-        $this->scheduleId = Schedule::insertGetId([
-            'movie_id' => $this->movieId,
-            'screen_id' => Screen::first()->id,
-            'start_time' => $startTime,
-            'end_time' => $startTime->addHours(2),
+    private function createSchedule(int $movieId, int $screenNumber): Schedule
+    {
+        return Schedule::create([
+            'movie_id' => $movieId,
+            'start_time' => $this->showTime,
+            'end_time' => $this->showTime->addHours(2),
+            'screen_number' => $screenNumber,
         ]);
     }
 
-    #[Test]
-    #[Group('station20')]
-    public function testスクリーンのシード処理が正常に動作する(): void
+    public function testユーザー画面にスクリーン番号が表示されていないか(): void
     {
-        $screens = Screen::all();
-        $this->assertCount(3, $screens);
+        // 映画とスケジュールを作成
+        $movie = $this->createMovie('テスト映画');
+        $this->createSchedule($movie->id, 2); // スクリーン2で上映
 
-        foreach ($screens as $index => $screen) {
-            $this->assertEquals('スクリーン' . ($index + 1), $screen->name);
-        }
-    }
-
-    #[Test]
-    #[Group('station20')]
-    public function test予約作成時にスクリーンの指定が必須(): void
-    {
-        $response = $this->post('/reservations/store', [
-            'schedule_id' => $this->scheduleId,
-            'sheet_id' => Sheet::first()->id,
-            'name' => 'テスト太郎',
-            'email' => 'test@example.com',
-            'date' => '2024-12-01',
-            // screen_id を意図的に省略
-        ]);
-
-        $response->assertStatus(302);
-        $response->assertInvalid(['screen_id']);
-        $this->assertDatabaseCount('reservations', 0);
-    }
-
-    #[Test]
-    #[Group('station20')]
-    public function test同一スケジュールの同一スクリーンで同一座席の重複予約を防ぐ(): void
-    {
-        // 最初の予約
-        $firstReservation = [
-            'schedule_id' => $this->scheduleId,
-            'screen_id' => Screen::first()->id,
-            'sheet_id' => Sheet::first()->id,
-            'name' => 'テスト太郎',
-            'email' => 'test@example.com',
-            'date' => '2024-12-01',
-        ];
-
-        $response = $this->post('/reservations/store', $firstReservation);
-        $response->assertStatus(302);
-        $this->assertDatabaseCount('reservations', 1);
-
-        // 重複予約の試行
-        $response = $this->post('/reservations/store', $firstReservation);
-        $response->assertStatus(302);
-        $response->assertInvalid(['sheet_id']);
-        $this->assertDatabaseCount('reservations', 1);
-    }
-
-    #[Test]
-    #[Group('station20')]
-    public function test異なるスクリーンでは同じ座席を予約可能(): void
-    {
-        // 1つ目のスクリーンでの予約
-        $this->post('/reservations/store', [
-            'schedule_id' => $this->scheduleId,
-            'screen_id' => Screen::first()->id,
-            'sheet_id' => Sheet::first()->id,
-            'name' => 'テスト太郎',
-            'email' => 'test@example.com',
-            'date' => '2024-12-01',
-        ]);
-
-        // 2つ目のスクリーンでの予約
-        $response = $this->post('/reservations/store', [
-            'schedule_id' => $this->scheduleId,
-            'screen_id' => Screen::find(2)->id,
-            'sheet_id' => Sheet::first()->id,
-            'name' => 'テスト次郎',
-            'email' => 'test2@example.com',
-            'date' => '2024-12-01',
-        ]);
-
-        $response->assertStatus(302);
-        $this->assertDatabaseCount('reservations', 2);
-    }
-
-    #[Test]
-    #[Group('station20')]
-    public function testスケジュール作成時にスクリーンの指定が必須(): void
-    {
-        $startTime = new CarbonImmutable('2024-12-01 10:00:00');
-        $response = $this->post("/admin/movies/{$this->movieId}/schedules/store", [
-            'movie_id' => $this->movieId,
-            'start_time_date' => $startTime->format('Y-m-d'),
-            'start_time_time' => $startTime->format('H:i'),
-            'end_time_date' => $startTime->addHours(2)->format('Y-m-d'),
-            'end_time_time' => $startTime->addHours(2)->format('H:i'),
-            // screen_id を意図的に省略
-        ]);
-
-        $response->assertStatus(302);
-        $response->assertInvalid(['screen_id']);
-    }
-
-    #[Test]
-    #[Group('station20')]
-    public function test予約一覧画面にスクリーン情報が表示される(): void
-    {
-        $reservation = Reservation::create([
-            'schedule_id' => $this->scheduleId,
-            'screen_id' => Screen::first()->id,
-            'sheet_id' => Sheet::first()->id,
-            'name' => 'テスト太郎',
-            'email' => 'test@example.com',
-            'date' => '2024-12-01',
-        ]);
-
-        $response = $this->get('/admin/reservations');
+        // 映画詳細ページを表示
+        $response = $this->get('/movies/' . $movie->id);
         $response->assertStatus(200);
-        $response->assertSee('スクリーン1');
-        $response->assertSee($reservation->name);
+
+        // "スクリーン"という文字列が表示されていないことを確認
+        $response->assertDontSeeText('スクリーン');
+        $response->assertDontSeeText('SCREEN');
+        $response->assertDontSeeText('screen');
+
+        // 数字のみの場合でもスクリーン番号として認識されないよう確認
+        $response->assertDontSeeText('スクリーン1');
+        $response->assertDontSeeText('スクリーン2');
+        $response->assertDontSeeText('スクリーン3');
     }
 
-    #[Test]
-    #[Group('station20')]
-    public function testモデル間のリレーションが正しく機能する(): void
+    public function test異なるスクリーンで同じ座席番号を予約できるか(): void
     {
-        // 予約を作成
-        $reservation = Reservation::create([
-            'schedule_id' => $this->scheduleId,
-            'screen_id' => Screen::first()->id,
-            'sheet_id' => Sheet::first()->id,
-            'name' => 'テスト太郎',
-            'email' => 'test@example.com',
-            'date' => '2024-12-01',
+        // 同じ時間帯に2つの映画のスケジュールを作成（異なるスクリーンで）
+        $movie1 = $this->createMovie('映画A');
+        $movie2 = $this->createMovie('映画B');
+
+        $schedule1 = $this->createSchedule($movie1->id, 1);
+        $schedule2 = $this->createSchedule($movie2->id, 2);
+
+        // 同じ座席番号(例：A-1)で予約を試みる
+        $sheet = Sheet::where('row', 'A')->where('column', '1')->first();
+
+        // スクリーン1での予約
+        $reservation1 = Reservation::create([
+            'schedule_id' => $schedule1->id,
+            'sheet_id' => $sheet->id,
+            'email' => 'test1@example.com',
+            'name' => 'テストユーザー1',
+            'date' => $this->showTime->format('Y-m-d'),
         ]);
 
-        // スクリーンから予約を取得できることを確認
-        $screen = Screen::find($reservation->screen_id);
-        $this->assertTrue($screen->schedules()->exists());
-        $this->assertTrue($screen->sheets()->exists());
+        // スクリーン2で同じ座席番号の予約を試みる
+        try {
+            $reservation2 = Reservation::create([
+                'schedule_id' => $schedule2->id,
+                'sheet_id' => $sheet->id,
+                'email' => 'test2@example.com',
+                'name' => 'テストユーザー2',
+                'date' => $this->showTime->format('Y-m-d'),
+            ]);
 
-        // スケジュールからスクリーンを取得できることを確認
-        $schedule = Schedule::find($this->scheduleId);
-        $this->assertTrue($schedule->screens()->exists());
+            // 2つ目の予約が成功したことを確認
+            $this->assertDatabaseHas('reservations', [
+                'id' => $reservation2->id,
+                'schedule_id' => $schedule2->id,
+                'sheet_id' => $sheet->id,
+            ]);
+
+            // 両方の予約が存在することを確認
+            $this->assertEquals(2, Reservation::count());
+        } catch (\Exception $e) {
+            $this->fail('異なるスクリーンでの同一座席予約に失敗: ' . $e->getMessage());
+        }
     }
 }

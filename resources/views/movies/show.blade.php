@@ -20,11 +20,6 @@
             <p class="show-description">{{ $movie->description }}</p>
         </div>
     </div>
-    <div class="row mt-4">
-        <div class="col-3">
-            <p class="card-text">スクリーン1</p>
-        </div>
-    </div>
     <div class="row mt-2">
         @foreach ($schedules as $schedule)
             <div class="col-2">
