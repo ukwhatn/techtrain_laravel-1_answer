@@ -5,6 +5,6 @@
     <form method="post" action="{{ route("admin.schedules.update", $schedule->id) }}">
       @csrf
       @method('patch')
-      @include('admin.schedules.fields', ['schedule' => $schedule,'movie' => $schedule->movie])
+      @include('admin.schedules.fields', ['schedule' => $schedule,'movie' => $schedule->movie, 'screens' => $screens])
     </form>
 @endsection

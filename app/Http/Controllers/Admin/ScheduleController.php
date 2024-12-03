@@ -35,6 +35,13 @@ class ScheduleController extends Controller
             ]);
         }
 
+        if ($this->hasScheduleConflict($input, $data)) {
+            return redirect()
+                ->route('admin.schedules.create', $input['movie_id'])
+                ->withInput()
+                ->withErrors(['screen_id' => '指定した時間帯は既に使用されています']);
+        }
+
         Schedule::create($data);
         $request->session()->flash('success', 'スケジュールを保存しました');
         return redirect(route('admin.movies.show', $data['movie_id']));
@@ -45,6 +52,21 @@ class ScheduleController extends Controller
         $data['start_time'] = $data['start_time_date'] . ' ' . $data['start_time_time'];
         $data['end_time'] = $data['end_time_date'] . ' ' . $data['end_time_time'];
         return $data;
+    }
+
+    private function hasScheduleConflict(array $input, array $data, ?int $excludeId = null): bool
+    {
+        $query = Schedule::where('screen_id', $input['screen_id'])
+            ->where(function ($q) use ($data) {
+                $q->whereBetween('start_time', [$data['start_time'], $data['end_time']])
+                    ->orWhereBetween('end_time', [$data['start_time'], $data['end_time']]);
+            });
+
+        if ($excludeId) {
+            $query->where('id', '!=', $excludeId);
+        }
+
+        return $query->exists();
     }
 
     public function create(int $movieId): View
@@ -58,13 +80,16 @@ class ScheduleController extends Controller
     {
         $schedule = Schedule::findOrFail($scheduleId);
         $screens = Screen::all()->pluck('name', 'id');
-        return view('admin.schedules.edit')->with('schedule', 'screens');
+        $movie = Movie::findOrFail($schedule->movie_id);
+        return view('admin.schedules.edit')->with(compact('schedule', 'screens', 'movie'));
     }
 
     public function update(int $id, UpdateScheduleRequest $request): RedirectResponse
     {
         $input = $request->validated();
         $data = $this->formatDateForSave($input);
+        \Illuminate\Support\Facades\Log::error('Validated data:', $input);
+        \Illuminate\Support\Facades\Log::error('Formatted data:', $data);
 
         $startTime = CarbonImmutable::parse($data['start_time']);
         if (CarbonImmutable::parse($data['start_time'])->gte($data['end_time'])) {
@@ -79,6 +104,13 @@ class ScheduleController extends Controller
                 'start_time_time' => '終了時刻より6分以上前の時刻にしてください',
                 'end_time_time' => '開始時刻から6分以上後の時刻にしてください'
             ]);
+        }
+
+        if ($this->hasScheduleConflict($input, $data, $id)) {
+            return redirect()
+                ->route('admin.schedules.edit', $id)
+                ->withInput()
+                ->withErrors(['schedule_conflict' => '指定した時間帯は既に使用されています']);
         }
 
         $schedule = Schedule::findOrFail($id);

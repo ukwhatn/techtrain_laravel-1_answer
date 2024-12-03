@@ -33,6 +33,7 @@
                     <th scope="col">映画タイトル</th>
                     <th scope="col">映画開始時刻</th>
                     <th scope="col">映画終了時刻</th>
+                    <th scope="col">スクリーン</th>
                     <th scope="col">作成日時</th>
                     <th scope="col">更新日時</th>
                     <th scope="col"></th>
@@ -46,6 +47,7 @@
                             <td>{{ $movie->title }}</td>
                             <td>{{ $schedule->start_time }}</td>
                             <td>{{ $schedule->end_time }}</td>
+                            <td>{{ $schedule->screen->name }}</td>
                             <td>{{ $schedule->created_at }}</td>
                             <td>{{ $schedule->updated_at }}</td>
                             <td>

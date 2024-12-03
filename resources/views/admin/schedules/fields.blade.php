@@ -27,16 +27,12 @@
     <div class="col-6">
         <div class="form-group">
     <label for="screen_id">スクリーン</label>
-    <select name="screen_id" id="screen_id" class="form-control">
+    <select name="screen_id" id="screen_id" class="form-control {{ $errors->first('screen_id') ? 'is-invalid' : '' }}">
         @foreach($screens as $id => $name)
             <option value="{{ $id }}">{{ $name }}</option>
         @endforeach
     </select>
-    @error('screen_id')
-        <span class="invalid-feedback" role="alert">
-            <strong>{{ $message }}</strong>
-        </span>
-    @enderror
+            <div class="invalid-feedback">{{ $errors->first('screen_id') }}</div>
 </div>
     </div>
 </div>
