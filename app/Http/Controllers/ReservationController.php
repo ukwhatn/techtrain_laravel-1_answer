@@ -14,23 +14,10 @@ use Illuminate\View\View;
 
 class ReservationController extends Controller
 {
-    public function create(int $movieId, int $scheduleId, Request $request): View
-    {
-        $date = $request->query('date') ?? null;
-        $sheetId = $request->query('sheetId') ?? null;
-        $isAlreadyReserved = Sheet::withReservationId($scheduleId)->where('sheet_id', '=', $sheetId)->exists();
-        if (is_null($date) || is_null($sheetId) || $isAlreadyReserved) {
-            abort(400);
-        }
-        $movie = Movie::findOrFail($movieId);
-        $schedule = Schedule::findOrFail($scheduleId);
-        $sheet = Sheet::findOrFail($sheetId);
-        return view('reservations.create')->with(compact('movie', 'schedule', 'sheet'));
-    }
-
     public function store(CreateReservationRequest $request): RedirectResponse
     {
         $data = $request->validated();
+        $data['user_id'] = auth()->id();
         if ($this->isDuplicateReservation($data)) {
             $schedule = Schedule::findOrFail($data['schedule_id']);
             $request->session()->flash('error', 'その座席はすでに予約済みです');
@@ -50,5 +37,19 @@ class ReservationController extends Controller
         return Reservation::where('sheet_id', '=', $data['sheet_id'])
             ->where('schedule_id', '=', $data['schedule_id'])
             ->exists();
+    }
+
+    public function create(int $movieId, int $scheduleId, Request $request): View
+    {
+        $date = $request->query('date') ?? null;
+        $sheetId = $request->query('sheetId') ?? null;
+        $isAlreadyReserved = Sheet::withReservationId($scheduleId)->where('sheet_id', '=', $sheetId)->exists();
+        if (is_null($date) || is_null($sheetId) || $isAlreadyReserved) {
+            abort(400);
+        }
+        $movie = Movie::findOrFail($movieId);
+        $schedule = Schedule::findOrFail($scheduleId);
+        $sheet = Sheet::findOrFail($sheetId);
+        return view('reservations.create')->with(compact('movie', 'schedule', 'sheet'));
     }
 }

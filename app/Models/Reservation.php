@@ -16,9 +16,8 @@ class Reservation extends Model
         'date',
         'schedule_id',
         'sheet_id',
-        'email',
-        'name',
         'is_canceled',
+        'user_id'
     ];
 
     public function schedule(): BelongsTo
@@ -31,12 +30,17 @@ class Reservation extends Model
         return $this->belongsTo(Sheet::class, 'sheet_id');
     }
 
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
     public function scopeIsShowing(Builder $query): Builder
     {
         return $query->join('schedules', function ($join) {
             $join->on('schedules.id', '=', 'reservations.schedule_id')
                 ->where('schedules.start_time', '>=', CarbonImmutable::now());
-            })
+        })
             ->select('reservations.*');
     }
 
