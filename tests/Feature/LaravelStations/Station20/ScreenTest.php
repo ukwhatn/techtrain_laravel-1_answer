@@ -202,7 +202,7 @@ class ScreenTest extends TestCase
         $response->assertSessionHasNoErrors();
     }
 
-    public function testユーザ画面にスクリーン名非表示(): void
+    public function testユーザ画面にスクリーン名が表示されていない(): void
     {
         $schedule = Schedule::create([
             'movie_id' => $this->movie->id,
