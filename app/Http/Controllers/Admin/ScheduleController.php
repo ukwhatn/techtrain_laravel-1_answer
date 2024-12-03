@@ -7,19 +7,14 @@ use App\Http\Requests\CreateScheduleRequest;
 use App\Http\Requests\UpdateScheduleRequest;
 use App\Models\Movie;
 use App\Models\Schedule;
+use App\Models\Screen;
 use Carbon\CarbonImmutable;
-use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class ScheduleController extends Controller
 {
-    public function create(int $movieId): View
-    {
-        $movie = Movie::findOrFail($movieId);
-        return view('admin.schedules.create')->with('movie', $movie);;
-    }
-
     public function store(CreateScheduleRequest $request): RedirectResponse
     {
         $input = $request->validated();
@@ -45,10 +40,25 @@ class ScheduleController extends Controller
         return redirect(route('admin.movies.show', $data['movie_id']));
     }
 
+    private function formatDateForSave(array $data): array
+    {
+        $data['start_time'] = $data['start_time_date'] . ' ' . $data['start_time_time'];
+        $data['end_time'] = $data['end_time_date'] . ' ' . $data['end_time_time'];
+        return $data;
+    }
+
+    public function create(int $movieId): View
+    {
+        $movie = Movie::findOrFail($movieId);
+        $screens = Screen::all()->pluck('name', 'id');  // 追加
+        return view('admin.schedules.create', compact('movie', 'screens'));
+    }
+
     public function edit(int $scheduleId): View
     {
         $schedule = Schedule::findOrFail($scheduleId);
-        return view('admin.schedules.edit')->with('schedule', $schedule);
+        $screens = Screen::all()->pluck('name', 'id');
+        return view('admin.schedules.edit')->with('schedule', 'screens');
     }
 
     public function update(int $id, UpdateScheduleRequest $request): RedirectResponse
@@ -84,12 +94,5 @@ class ScheduleController extends Controller
         $schedule->delete();
         $request->session()->flash('success', 'スケジュールを削除しました');
         return redirect(route('admin.movies.show', $movieId));
-    }
-
-    private function formatDateForSave(array $data): array
-    {
-        $data['start_time'] = $data['start_time_date'] . ' ' . $data['start_time_time'];
-        $data['end_time'] = $data['end_time_date'] . ' ' . $data['end_time_time'];
-        return $data;
     }
 }

@@ -25,7 +25,25 @@
 </div>
 <div class="row mb-3">
     <div class="col-6">
+        <div class="form-group">
+    <label for="screen_id">スクリーン</label>
+    <select name="screen_id" id="screen_id" class="form-control">
+        @foreach($screens as $id => $name)
+            <option value="{{ $id }}">{{ $name }}</option>
+        @endforeach
+    </select>
+    @error('screen_id')
+        <span class="invalid-feedback" role="alert">
+            <strong>{{ $message }}</strong>
+        </span>
+    @enderror
+</div>
+    </div>
+</div>
+<div class="row mb-3">
+    <div class="col-6">
         <a href="{{ route('admin.movies.show', $movie->id) }}" class="btn btn-secondary">キャンセル</a>
         <button class="btn btn-primary" type="submit">保存</button>
     </div>
 </div>
+

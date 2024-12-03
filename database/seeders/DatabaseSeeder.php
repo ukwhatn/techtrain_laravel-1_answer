@@ -16,5 +16,6 @@ class DatabaseSeeder extends Seeder
         $this->call([
             SheetTableSeeder::class,
         ]);
+        $this->call(ScreenSeeder::class);
     }
 }

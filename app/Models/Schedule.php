@@ -16,6 +16,7 @@ class Schedule extends Model
 
     protected $fillable = [
         'movie_id',
+        'screen_id',
         'start_time',
         'end_time',
     ];
@@ -23,6 +24,11 @@ class Schedule extends Model
     public function movie(): BelongsTo
     {
         return $this->belongsTo(Movie::class, 'movie_id');
+    }
+
+    public function screen(): BelongsTo
+    {
+        return $this->belongsTo(Screen::class, 'screen_id');
     }
 
     public function scopeIsShowing(Builder $query):Builder
