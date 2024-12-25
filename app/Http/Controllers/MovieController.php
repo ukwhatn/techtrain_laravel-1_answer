@@ -15,6 +15,8 @@ class MovieController extends Controller
         $isShowing = $request->query('is_showing', 'all');
 
         $movies = (new Movie())
+            // SQLインジェクションテスト用(St22)
+            // ->whereRaw("title = '{$request->input('keyword')}'")
             ->when(isset($keyword), function($query) use ($keyword) {
                 $query->where(function($q) use($keyword) {
                     $q->where('title', 'LIKE', '%'.$keyword.'%')
